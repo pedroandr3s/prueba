@@ -1,0 +1,48 @@
+// Directiva de Next.js: marca este componente como "Client Component" (se ejecuta en el navegador).
+// Es obligatoria porque usamos useState y eventos (onSubmit, onChange), que no existen en componentes de servidor.
+"use client";// useState es el hook de React para guardar valores que, al cambiar, hacen que la pantalla se vuelva a dibujar.
+import { useState } from "react";// "export default" hace que este componente sea la página de la ruta "/" (app/page.tsx).
+export default function Home() {// Estado del archivo elegido: empieza en null (nada seleccionado). <File | null> es el tipo TypeScript.
+  const [file, setFile] = useState<File | null>(null); // Estado con el texto del resumen que devuelve el servidor; empieza vacío.
+  const [result, setResult] = useState("");
+  return (// <main> es la etiqueta semántica del contenido principal. Clases de Tailwind: flex + flex-col = columna,
+    // min-h-screen = alto mínimo de toda la pantalla, items-center = centrado horizontal,
+    // justify-between = reparte el espacio vertical, p-24 = padding grande.
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      {/* Título de la página. text-3xl = tamaño grande, font-bold = negrita, mb-4 = margen inferior. */}
+      <h1 className="text-3xl font-bold mb-4">Resumidor de Documentos</h1>
+      {/* Formulario: onSubmit se dispara al presionar el botón "Resumir" (type="submit"). */}
+      <form // "async" porque adentro esperamos la respuesta del servidor con await.
+        onSubmit={async (e) => {
+          // Evita el comportamiento por defecto del navegador (recargar la página al enviar el formulario).
+          e.preventDefault();
+          // FormData permite enviar archivos en formato multipart/form-data (lo que espera route.ts con request.formData()).
+          const formData = new FormData();
+          // Agrega el archivo bajo la clave "file" (debe coincidir con formData.get("file") del backend).
+          // "as File" fuerza el tipo porque file puede ser null según TypeScript.
+          formData.append("file", file as File);
+          // Llama a nuestra API interna (app/api/analyze/route.ts) y espera la respuesta.
+          const response = await fetch("/api/analyze", {
+            // POST porque enviamos datos (y el backend exporta la función POST).
+            method: "POST",
+            // El cuerpo es el FormData; el navegador pone solo el Content-Type correcto.
+            body: formData,
+          });
+          // Convierte el cuerpo de la respuesta de JSON a objeto JavaScript: { summary: "..." }.
+          const data = await response.json();
+          // Guarda el resumen en el estado; esto re-renderiza el componente y lo muestra abajo.
+          setResult(data.summary);
+        }} >
+        {/* Selector de archivos nativo. */}
+        <input
+          // type="file" muestra el botón de elegir archivo. onChange se ejecuta cuando el usuario elige uno:
+          // e.target.files es la lista de archivos; "?." evita error si es null; [0] toma el primero;
+          // "|| null" deja el estado en null si no hay ninguno.
+          type="file" onChange={(e) => setFile(e.target.files?.[0] || null)}/>
+        {/* Botón que envía el formulario. Clases: fondo azul, texto blanco, padding x/y, bordes redondeados, ml-2 = margen izquierdo. */}
+        <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded ml-2">
+          Resumir</button></form>
+      {/* Renderizado condicional: "&&" solo dibuja el <pre> si result no está vacío.
+          <pre> conserva saltos de línea y espacios del texto del resumen. */}
+      {result && <pre>  {result}</pre>} </main>
+  );}
